@@ -67,7 +67,7 @@ describe 'influxdb' do
 
       it 'waits for the API, then sets up the admin user' do
         is_expected.to contain_http_conn_validator('influxdb-conn-validator').with(
-          host: 'localhost', port: 8086, use_ssl: false, test_url: '/ping',
+          host: 'localhost', port: 8086, use_ssl: false, test_url: '/ping', expected_code: 204, verify_peer: false,
         ).that_requires('Class[influxdb::service]')
         is_expected.to contain_influxdb_auth('configure_auth').with(
           ensure: 'present', admin_username: 'admin', port: 8086, ssl: false,

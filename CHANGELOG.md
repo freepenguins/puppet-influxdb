@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-10-17
+
+### Fixed
+- The startup check waited for HTTP 200 from `/ping`, which answers 204, so
+  every run with InfluxDB present waited 60 seconds and then failed. It now
+  expects 204, and doesn't verify the certificate when HTTPS is on (it's the
+  local server, often with a self-signed certificate).
+
 ## [2.0.0] - 2026-10-17
 
 First release as `freepenguins-influxdb`, forked from

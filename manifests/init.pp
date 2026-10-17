@@ -139,15 +139,19 @@ class influxdb (
     -> Class['influxdb::config']
     ~> Class['influxdb::service']
 
-    # /ping answers without credentials once the HTTP API is up.
+    # /ping answers 204 No Content, without credentials, once the HTTP API
+    # is up. With HTTPS the certificate is often self-signed, and this is
+    # our own server on localhost, so it isn't verified.
     http_conn_validator { 'influxdb-conn-validator':
-      host      => 'localhost',
-      port      => $api_port,
-      use_ssl   => $_ssl,
-      test_url  => '/ping',
-      try_sleep => 2,
-      timeout   => 60,
-      require   => Class['influxdb::service'],
+      host          => 'localhost',
+      port          => $api_port,
+      use_ssl       => $_ssl,
+      verify_peer   => false,
+      test_url      => '/ping',
+      expected_code => 204,
+      try_sleep     => 2,
+      timeout       => 60,
+      require       => Class['influxdb::service'],
     }
 
     influxdb_auth { 'configure_auth':

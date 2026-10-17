@@ -1,6 +1,6 @@
 {
   "name": "freepenguins-influxdb",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "author": "freepenguins",
   "summary": "Installs and configures InfluxDB 1.x, its databases, users and retention policies",
   "license": "Apache-2.0",
