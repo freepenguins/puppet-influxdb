@@ -3,4 +3,26 @@
 ---
 fixtures:
   forge_modules:
-#     stdlib: "puppetlabs/stdlib"
+    # 9.x is the stdlib line that supports both Puppet 7 and Puppet 8.
+    stdlib:
+      repo: "puppetlabs/stdlib"
+      ref: "9.7.0"
+    # 10.x is the newest apt that still supports Puppet 7.
+    apt:
+      repo: "puppetlabs/apt"
+      ref: "10.0.1"
+    # 8.x is the newest puppet/systemd that still supports Puppet 7.
+    systemd:
+      repo: "puppet/systemd"
+      ref: "8.3.1"
+    # puppet/systemd 8.x needs inifile < 7.0.0.
+    inifile:
+      repo: "puppetlabs/inifile"
+      ref: "6.2.0"
+    healthcheck:
+      repo: "puppet/healthcheck"
+      ref: "2.1.0"
+    # Puppet's agent packages ship yumrepo; the puppet gem doesn't since 6.0.
+    yumrepo_core:
+      repo: "puppetlabs/yumrepo_core"
+      ref: "2.1.0"

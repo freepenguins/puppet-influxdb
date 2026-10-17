@@ -1,0 +1,8 @@
+---
+# Debian and Ubuntu share one suite: https://repos.influxdata.com/debian
+# stable main.
+influxdb::repo_location: 'https://repos.influxdata.com/debian'
+influxdb::repo_release: 'stable'
+influxdb::repo_components:
+  - main
+influxdb::repo_key_name: 'influxdata-archive.asc'

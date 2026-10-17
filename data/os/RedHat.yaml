@@ -1,0 +1,2 @@
+---
+influxdb::repo_location: 'https://repos.influxdata.com/stable/$basearch/main'
