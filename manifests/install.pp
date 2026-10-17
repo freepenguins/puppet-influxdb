@@ -1,53 +1,55 @@
-# @summary Manages the installation of InfluxDB
+# @summary Adds InfluxData's repository and installs the InfluxDB package.
 #
-# @example
-#   Use main class
+# @api private
 class influxdb::install {
-  if $facts['os']['family'] == 'Debian' {
-    $distro_id = downcase($facts['os']['distro']['id'])
+  assert_private()
 
-    apt::source { 'influxdb':
-      ensure   => $influxdb::ensure,
-      location => "https://repos.influxdata.com/${distro_id}",
-      release  => $facts['os']['distro']['codename'],
-      repos    => 'stable',
-      key      => {
-        id     => '05CE15085FC09D18E99EFB22684A14CF2582E0C5',
-        source => 'https://repos.influxdata.com/influxdb.key',
-      },
-    }
+  case $facts['os']['family'] {
+    'Debian': {
+      if $influxdb::manage_repo {
+        # Strings rather than arrays: puppetlabs-apt accepts arrays only from
+        # 10.0.0. With only `name` and `source` in the key hash, apt writes a
+        # keyring and signed-by instead of using the deprecated apt-key.
+        apt::source { 'influxdb':
+          ensure        => $influxdb::ensure,
+          comment       => 'InfluxData repository',
+          location      => $influxdb::repo_location,
+          release       => $influxdb::repo_release,
+          repos         => $influxdb::repo_components.join(' '),
+          key           => {
+            'name'   => $influxdb::repo_key_name,
+            'source' => $influxdb::repo_key_source,
+          },
+          notify_update => true,
+        }
 
-    if ($influxdb::ensure == 'present') {
-      $_require = [Class['apt::update'], Apt::Source['influxdb']]
+        if $influxdb::ensure == 'present' {
+          Apt::Source['influxdb'] -> Class['apt::update'] -> Package[$influxdb::package_name]
+        }
+      }
     }
-    else {
-      $_require = undef
+    'RedHat': {
+      if $influxdb::manage_repo {
+        yumrepo { 'influxdb':
+          ensure   => $influxdb::ensure,
+          descr    => 'InfluxData repository',
+          baseurl  => $influxdb::repo_location,
+          gpgcheck => '1',
+          gpgkey   => $influxdb::repo_key_source,
+          enabled  => '1',
+        }
+
+        if $influxdb::ensure == 'present' {
+          Yumrepo['influxdb'] -> Package[$influxdb::package_name]
+        }
+      }
+    }
+    default: {
+      fail("influxdb: ${facts['os']['family']} is not supported; only Debian and RedHat family systems are.")
     }
   }
-  elsif $facts['os']['family'] == 'RedHat' {
-    yumrepo { 'influxdb':
-      ensure   => $influxdb::ensure,
-      baseurl  => 'https://repos.influxdata.com/rhel/$releasever/$basearch/stable',
-      gpgcheck => true,
-      gpgkey   => 'https://repos.influxdata.com/influxdb.key',
-      enabled  => true,
-    }
-    ~> exec { 'influxdb_yumrepo_yum_clean':
-      command     => 'yum clean metadata expire-cache --disablerepo="*" --enablerepo="influxdb"',
-      refreshonly => true,
-      returns     => [0, 1],
-      path        => [ '/bin', '/usr/bin', '/usr/local/bin' ],
-      cwd         => '/',
-    }
 
-    $_require = undef
-  }
-  else {
-    fail('Module only supports Debian/RedHat OS!')
-  }
-
-  package { 'influxdb':
-    ensure  => $influxdb::_ensure_package,
-    require => $_require,
+  package { $influxdb::package_name:
+    ensure => $influxdb::_ensure_package,
   }
 }

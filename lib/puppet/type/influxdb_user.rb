@@ -1,45 +1,69 @@
 # frozen_string_literal: true
 
-Puppet::Type.newtype(:influxdb_user) do
-  @doc = 'Create or update a user in InfluxDB.'
+require 'puppet/parameter/boolean'
+require_relative '../../puppet_x/influxdb/type_helpers'
 
-  feature :user_management, 'require rest api', methods: [:user_management]
+Puppet::Type.newtype(:influxdb_user) do
+  @doc = <<-DOC
+    @summary Manages an InfluxDB user, its password and its privilege.
+
+    A non-admin user has `privilege` on `database`. An admin user has all
+    privileges everywhere. InfluxDB doesn't show passwords, so Puppet checks
+    the password by logging in as the user and sets it again if that fails.
+  DOC
 
   ensurable
 
   newparam(:name, namevar: true) do
-    desc 'A unique name for the resource'
-  end
-
-  newparam(:admin_username) do
-    desc 'Admin username to manage the resource with'
-  end
-
-  newparam(:admin_password) do
-    desc 'Admin password to manage the resource with'
+    desc 'A name for the resource.'
   end
 
   newparam(:username) do
-    desc 'The user to create'
+    desc 'The user name. Defaults to the resource name.'
+    defaultto { @resource[:name] }
   end
 
-  newparam(:password) do
-    desc 'Password for the user to create'
+  newproperty(:password) do
+    desc 'The user\'s password.'
+    sensitive true
+
+    def insync?(_is)
+      provider.password_valid?
+    end
+
+    def change_to_s(_currentvalue, _newvalue)
+      'changed password'
+    end
   end
 
-  newparam(:is_admin) do
-    desc 'Whether to user is a admin or normal user'
-  end
-
-  newparam(:database) do
-    desc 'Which database to grant access to'
+  newparam(:is_admin, boolean: true, parent: Puppet::Parameter::Boolean) do
+    desc 'Whether the user is an admin.'
+    defaultto :false
   end
 
   newproperty(:privilege) do
-    desc 'Which privilege to use'
-
-    def insync?(is)
-      is == should
+    desc 'The privilege on `database`: READ, WRITE or ALL. Admins are ALL.'
+    validate do |value|
+      raise ArgumentError, "privilege must be READ, WRITE or ALL, not #{value.inspect}" unless ['READ', 'WRITE', 'ALL'].include?(value.to_s.upcase)
     end
+    munge { |value| value.to_s.upcase }
+  end
+
+  newparam(:database) do
+    desc 'The database a non-admin user has `privilege` on.'
+  end
+
+  PuppetX::Influxdb::TypeHelpers.add_connection_attributes(self)
+
+  autorequire(:influxdb_auth) { ['configure_auth'] }
+  autorequire(:influxdb_database) { self[:database] ? ["influxdb_database_#{self[:database]}"] : [] }
+
+  validate do
+    next unless self[:ensure] == :present
+
+    raise ArgumentError, 'password is required' if self[:password].nil?
+    next if self[:is_admin]
+
+    raise ArgumentError, 'a non-admin user needs privilege and database' if self[:privilege].nil? || self[:database].nil?
   end
 end

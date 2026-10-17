@@ -1,0 +1,4 @@
+<%- | Hash $config | -%>
+# This file is managed by Puppet; local changes will be overwritten.
+
+<%= stdlib::to_toml($config) -%>

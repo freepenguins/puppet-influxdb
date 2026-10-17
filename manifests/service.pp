@@ -1,33 +1,41 @@
-# @summary Manages the service of InfluxDB
+# @summary Runs the InfluxDB service.
 #
-# @example
-#   Use main class
+# @api private
 class influxdb::service {
-  systemd::unit_file { 'influxdb.service':
-    ensure  => $influxdb::ensure,
-    path    => '/lib/systemd/system',
-    notify  => Service['influxdb'],
-    content => epp("${module_name}/influxd.service.epp", {
-      config_path => $influxdb::config_path,
-      owner       => $influxdb::owner,
-      group       => $influxdb::group,
-    }),
-  }
-  systemd::unit_file { 'influxd.service':
-    ensure => $influxdb::ensure,
-    target =>  '/lib/systemd/system/influxdb.service',
-  }
+  assert_private()
 
-  if ($influxdb::ensure == 'present') {
+  if $influxdb::ensure == 'present' {
+    if $influxdb::manage_unit_file {
+      systemd::unit_file { 'influxdb.service':
+        content => epp("${module_name}/influxdb.service.epp", {
+          'config_path' => $influxdb::config_path,
+          'owner'       => $influxdb::owner,
+          'group'       => $influxdb::group,
+        }),
+        notify  => Service['influxdb'],
+      }
+    } else {
+      # Remove the override if manage_unit_file was turned off, so the
+      # package's unit takes over again.
+      systemd::unit_file { 'influxdb.service':
+        ensure => absent,
+        notify => Service['influxdb'],
+      }
+    }
+
     service { 'influxdb':
       ensure => running,
       enable => true,
     }
-  }
-  else {
+  } else {
     service { 'influxdb':
-      ensure => $influxdb::ensure,
+      ensure => stopped,
       enable => false,
+    }
+
+    systemd::unit_file { 'influxdb.service':
+      ensure  => absent,
+      require => Service['influxdb'],
     }
   }
 }

@@ -1,23 +1,24 @@
-Puppet::Type.newtype(:influxdb_database) do
-  @doc = 'Create or update a database in InfluxDB.'
+# frozen_string_literal: true
 
-  feature :database_management, 'require rest api', methods: [:database_management]
+require_relative '../../puppet_x/influxdb/type_helpers'
+
+Puppet::Type.newtype(:influxdb_database) do
+  @doc = <<-DOC
+    @summary Creates or drops an InfluxDB database.
+  DOC
 
   ensurable
 
   newparam(:name, namevar: true) do
-    desc 'A unique name for the resource'
-  end
-
-  newparam(:admin_username) do
-    desc 'Admin username to manage the resource with'
-  end
-
-  newparam(:admin_password) do
-    desc 'Admin password to manage the resource with'
+    desc 'A name for the resource.'
   end
 
   newparam(:database) do
-    desc 'The database to create'
+    desc 'The database name. Defaults to the resource name.'
+    defaultto { @resource[:name] }
   end
+
+  PuppetX::Influxdb::TypeHelpers.add_connection_attributes(self)
+
+  autorequire(:influxdb_auth) { ['configure_auth'] }
 end

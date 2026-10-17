@@ -1,59 +1,82 @@
-# @summary Manages a user within InfluxDB
+# @summary Manages an InfluxDB user, its password and its privilege.
 #
-# Create, destroy or update a user within InfluxDB
+# A non-admin user gets one privilege on one database. An admin user has all
+# privileges on every database. Puppet checks the password by logging in as
+# the user, and sets it again if that fails.
 #
-# @example
-#   influxdb::user { 'read_only_user':
-#     password  => 'mySuperSecretPassWORD',
+# @example A read-only user
+#   influxdb::user { 'grafana':
+#     password  => Sensitive('change-me'),
 #     privilege => 'READ',
-#     database  => 'my_database',
+#     database  => 'telegraf',
 #   }
 #
+# @example A second admin
 #   influxdb::user { 'admin2':
-#     password => 'Admin?Need?Better&Password',
+#     password => Sensitive('change-me-too'),
 #     is_admin => true,
 #   }
 #
-# @param privilege - What privileges to give the user
-# @param is_admin  - Whether the user should be created as an admin or not
-# @param ensure    - Create or destroy user
-# @param database  - What database the user should have $privileges too (only for non-admins)
-# @param password  - The plain-text password to give the user
-# @param name      - (namevar) The username of the user
-#
+# @param ensure
+#   Create or drop the user.
+# @param password
+#   The user's password. Required unless `ensure` is `absent`.
+# @param is_admin
+#   Whether the user is an admin.
+# @param privilege
+#   What a non-admin user may do in `database`.
+# @param database
+#   The database a non-admin user gets `privilege` on.
+# @param admin_username
+#   The admin user to log in as. Defaults to `influxdb::admin_username`.
+# @param admin_password
+#   That user's password. Defaults to `influxdb::admin_password`.
+# @param port
+#   The HTTP API port. Defaults to `influxdb::api_port`.
+# @param ssl
+#   Whether the API uses HTTPS. Defaults to `http.https-enabled` in
+#   `influxdb::configuration`.
 define influxdb::user (
-  Variant[Enum['READ', 'WRITE', 'ALL'],Undef] $privilege      = undef,
-  Boolean                                     $is_admin       = false,
-  Enum['present','absent']                    $ensure         = 'present',
-  String                                      $admin_password = $influxdb::admin_password,
-  String                                      $admin_username = $influxdb::admin_username,
-  Variant[String,Undef]                       $database       = undef,
-  Variant[String,Undef]                       $password       = undef,
+  Enum['present', 'absent']                          $ensure         = 'present',
+  Optional[Variant[String[1], Sensitive[String[1]]]] $password       = undef,
+  Boolean                                            $is_admin       = false,
+  Optional[Enum['READ', 'WRITE', 'ALL']]             $privilege      = undef,
+  Optional[String[1]]                                $database       = undef,
+  String[1]                                          $admin_username = $influxdb::admin_username,
+  Variant[String[1], Sensitive[String[1]]]           $admin_password = $influxdb::admin_password,
+  Stdlib::Port                                       $port           = $influxdb::api_port,
+  Boolean                                            $ssl            = $influxdb::_ssl,
 ) {
-
-  if ($ensure == 'present' and $password == undef) {
-    fail('Password need to be set, when creating a user')
+  if $ensure == 'present' {
+    if $password =~ Undef {
+      fail("influxdb::user[${name}]: set a password.")
+    }
+    if !$is_admin and ($privilege =~ Undef or $database =~ Undef) {
+      fail("influxdb::user[${name}]: a non-admin user needs a privilege and a database.")
+    }
   }
 
-  if ($is_admin) {
-    $_privilege = 'ALL'
+  # An admin has every privilege, on every database.
+  $_privilege = $is_admin ? {
+    true    => 'ALL',
+    default => $privilege,
   }
-  elsif (!$is_admin and ($privilege == undef or $database == undef)) {
-    fail('When creating a non-admin user, specify privileges and a database!')
-  }
-  else {
-    $_privilege = $privilege
+  $_database = $is_admin ? {
+    true    => undef,
+    default => $database,
   }
 
   influxdb_user { "influxdb_user_${name}":
     ensure         => $ensure,
-    admin_password => $admin_password,
-    admin_username => $admin_username,
-    is_admin       => $is_admin,
-    database       => $database,
     username       => $name,
     password       => $password,
+    is_admin       => $is_admin,
     privilege      => $_privilege,
+    database       => $_database,
+    admin_username => $admin_username,
+    admin_password => $admin_password,
+    port           => $port,
+    ssl            => $ssl,
     require        => Influxdb_auth['configure_auth'],
   }
 }

@@ -1,5 +1,5 @@
 ---
 # InfluxData's repository signing key. It replaced influxdb.key, which
-# InfluxData revoked in January 2023; the repository is signed with its
+# InfluxData retired in January 2023; the repository is signed with its
 # subkey AC10D744.
 influxdb::repo_key_source: 'https://repos.influxdata.com/influxdata-archive.key'
